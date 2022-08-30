@@ -1,4 +1,4 @@
-namespace HexView.Wpf
+﻿namespace HexView.Wpf
 {
     using System;
     using System.ComponentModel;
@@ -572,6 +572,7 @@ namespace HexView.Wpf
             if (verticalScrollBar != null)
             {
                 verticalScrollBar.Scroll -= OnVerticalScrollBarScroll;
+                verticalScrollBar.ValueChanged -= OnVerticalScrollBarValueChanged;
             }
 
             verticalScrollBar = GetTemplateChild(VerticalScrollBarName) as ScrollBar;
@@ -1123,7 +1124,7 @@ namespace HexView.Wpf
                         origin.Y += cachedFormattedChar.Height;
                     }
 
-                    for (var row = 0; row < MaxVisibleRows; ++row)
+                    for (var row = 1; row < MaxVisibleRows; ++row)
                     {
                         if (ShowAddress)
                         {
@@ -1554,10 +1555,12 @@ namespace HexView.Wpf
         private static void OnDataSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var hexViewer = (HexViewer)d;
-
-            hexViewer.Offset = 0;
-            hexViewer.SelectionStart = 0;
-            hexViewer.SelectionEnd = 0;
+            if (hexViewer.DataSource.BaseStream.Length <= 0)
+            {
+                hexViewer.Offset = 0;
+                hexViewer.SelectionStart = 0;
+                hexViewer.SelectionEnd = 0;
+            }
 
             hexViewer.InvalidateVisual();
         }
