@@ -1,4 +1,4 @@
-﻿namespace HexView.Wpf
+namespace HexView.Wpf
 {
     using System;
     using System.ComponentModel;
@@ -186,6 +186,13 @@
         /// </summary>
         public static readonly DependencyProperty ShowTextProperty =
             DependencyProperty.Register(nameof(ShowText), typeof(bool), typeof(HexViewer),
+                new FrameworkPropertyMetadata(true, OnPropertyChangedInvalidateVisual));
+
+        /// <summary>
+        /// Determines whether to show the header section of the control.
+        /// </summary>
+        public static readonly DependencyProperty ShowHeaderProperty =
+            DependencyProperty.Register(nameof(ShowHeader), typeof(bool), typeof(HexViewer),
                 new FrameworkPropertyMetadata(true, OnPropertyChangedInvalidateVisual));
 
         /// <summary>
@@ -472,6 +479,16 @@
 
             set => SetValue(ShowTextProperty, value);
         }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to show the header section of the control.
+        /// </summary>
+        public bool ShowHeader
+        {
+            get => (bool)GetValue(ShowHeaderProperty);
+            set => SetValue(ShowHeaderProperty, value);
+        }
+
 
         /// <summary>
         /// Gets or sets the width of the addresses displayed in the address section of the control.
@@ -1053,6 +1070,58 @@
                     Point origin = default;
 
                     Typeface cachedTypeface = new Typeface(FontFamily, FontStyle, FontWeight, FontStretch);
+
+                    // Draws a Header
+                    if (ShowHeader)
+                    {
+                        origin.X += (CalculateAddressColumnCharWidth() + CharsBetweenSections) * cachedFormattedChar.Width;
+                        origin.X += CharsBetweenSections * cachedFormattedChar.Width;
+                        var startPointX = origin.X;
+                        var startPointY = cachedFormattedChar.MaxTextHeight;
+                        Point endPoint = new Point(startPointX + 20.0, startPointY);
+
+                        // Needed to track text in alternating columns so we can use a different brush when drawing
+                        var evenColumnBuilder = new StringBuilder(Columns * DataWidth);
+                        var oddColumnBuilder = new StringBuilder(Columns * DataWidth);
+                        var column = 0;
+
+                        // Draw text up until selection start point
+                        while (column < Columns)
+                        {
+                            string textToFormat = $"{column.ToString("X2")}";
+
+                            if (column % 2 == 0)
+                            {
+                                evenColumnBuilder.Append(textToFormat);
+                                evenColumnBuilder.Append(' ', CharsBetweenDataColumns);
+
+                                oddColumnBuilder.Append(' ', textToFormat.Length + CharsBetweenDataColumns);
+                            }
+                            else
+                            {
+                                oddColumnBuilder.Append(textToFormat);
+                                oddColumnBuilder.Append(' ', CharsBetweenDataColumns);
+
+                                evenColumnBuilder.Append(' ', textToFormat.Length + CharsBetweenDataColumns);
+                            }
+
+                            ++column;
+                        }
+
+                        var evenFormattedText = new FormattedText(evenColumnBuilder.ToString(),
+                            CultureInfo.CurrentCulture, FlowDirection.LeftToRight, cachedTypeface, FontSize, Foreground, 1.0);
+                        drawingContext.DrawText(evenFormattedText, origin);
+
+                        var oddFormattedText = new FormattedText(oddColumnBuilder.ToString(), 
+                            CultureInfo.CurrentCulture, FlowDirection.LeftToRight, cachedTypeface, FontSize, Foreground, 1.0);
+                        drawingContext.DrawText(oddFormattedText, origin);
+
+                        drawingContext.DrawLine(pen, origin, endPoint);
+
+                        // reset origin and drop a row down
+                        origin = default;
+                        origin.Y += cachedFormattedChar.Height;
+                    }
 
                     for (var row = 0; row < MaxVisibleRows; ++row)
                     {
