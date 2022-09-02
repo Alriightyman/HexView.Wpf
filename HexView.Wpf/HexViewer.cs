@@ -240,6 +240,7 @@
             Address,
             Data,
             Text,
+            Header,
         }
 
         /// <summary>
@@ -892,6 +893,12 @@
                     highlightState = SelectionArea.Text;
                 }
 
+                if (position.Y < dataVerticalLinePoint0.Y || position.Y < textVerticalLinePoint0.Y)
+                {
+                    highlightBegin = SelectionArea.Header;
+                    highlightState = SelectionArea.Header;
+                }
+
                 if (highlightState != SelectionArea.None)
                 {
                     SelectionStart = ConvertPositionToOffset(position);
@@ -1077,9 +1084,8 @@
                     {
                         origin.X += (CalculateAddressColumnCharWidth() + CharsBetweenSections) * cachedFormattedChar.Width;
                         origin.X += CharsBetweenSections * cachedFormattedChar.Width;
-                        var startPointX = origin.X;
-                        var startPointY = cachedFormattedChar.MaxTextHeight;
-                        Point endPoint = new Point(startPointX + 20.0, startPointY);
+
+                        Point endPoint = new Point(origin.X + 20.0, cachedFormattedChar.MaxTextHeight);
 
                         // Needed to track text in alternating columns so we can use a different brush when drawing
                         var evenColumnBuilder = new StringBuilder(Columns * DataWidth);
@@ -1124,7 +1130,7 @@
                         origin.Y += cachedFormattedChar.Height;
                     }
 
-                    for (var row = 1; row < MaxVisibleRows; ++row)
+                    for (var row = 0; row < MaxVisibleRows; ++row)
                     {
                         if (ShowAddress)
                         {
@@ -1157,7 +1163,7 @@
                             {
                                 if (DataSource.BaseStream.Position + BytesPerColumn <= DataSource.BaseStream.Length)
                                 {
-                                    if (DataSource.BaseStream.Position >= SelectedOffset)
+                                    if (DataSource.BaseStream.Position >= (ShowHeader ? SelectedOffset - Columns : SelectedOffset))
                                     {
                                         break;
                                     }
@@ -1206,7 +1212,7 @@
                                 {
                                     if (DataSource.BaseStream.Position + BytesPerColumn <= DataSource.BaseStream.Length)
                                     {
-                                        if (DataSource.BaseStream.Position >= SelectedOffset + SelectionLength)
+                                        if (DataSource.BaseStream.Position >= (ShowHeader ? SelectedOffset - Columns : SelectedOffset) + SelectionLength)
                                         {
                                             break;
                                         }
@@ -2111,6 +2117,10 @@
             if (ShowData)
             {
                 point1.X += (CharsBetweenSections + ((CalculateDataColumnCharWidth() + CharsBetweenDataColumns) * Columns) - CharsBetweenDataColumns + CharsBetweenSections) * cachedFormattedChar.Width;
+                if (ShowHeader)
+                {
+                    point1.Y = cachedFormattedChar.Height;
+                }
             }
 
             return point1;
@@ -2123,6 +2133,11 @@
             if (ShowData)
             {
                 point2.X += (CharsBetweenSections + ((CalculateDataColumnCharWidth() + CharsBetweenDataColumns) * Columns) - CharsBetweenDataColumns + CharsBetweenSections) * cachedFormattedChar.Width;
+
+                if (ShowHeader)
+                {
+                    point2.Y = Math.Min(cachedFormattedChar.Height * MaxVisibleRows, canvas.ActualHeight);
+                }
             }
 
             return point2;
@@ -2572,6 +2587,27 @@
                     }
 
                     offset += (((long)position.Y * Columns) + (long)position.X) * BytesPerColumn;
+                }
+
+                break;
+                case SelectionArea.Header:
+                {
+                    Point addressVerticalLinePoint0 = CalculateDataVerticalLinePoint0();
+                    Point addressVerticalLinePoint1 = CalculateDataVerticalLinePoint1();
+
+                    // Clamp the Y coordinate to within the address region
+                    position.Y = position.Y.Clamp(addressVerticalLinePoint0.Y, addressVerticalLinePoint1.Y);
+
+                    // Convert the Y coordinate to the row number
+                    position.Y /= cachedFormattedChar.Height;
+
+                    if (position.Y >= MaxVisibleRows)
+                    {
+                        // Due to floating point rounding we may end up with exactly the maximum number of rows, so adjust to compensate
+                        --position.Y;
+                    }
+
+                    offset += BytesPerRow * (long)position.Y;
                 }
 
                 break;
